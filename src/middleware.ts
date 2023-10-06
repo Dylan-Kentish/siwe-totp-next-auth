@@ -13,4 +13,4 @@ export default withAuth({
   },
 });
 
-export const config = { matcher: ['/admin', '/me', '/link-accounts'] };
+export const config = { matcher: ['/admin', '/me', '/link-accounts', '/2fa'] };

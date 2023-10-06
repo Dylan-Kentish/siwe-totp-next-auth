@@ -56,10 +56,19 @@ export const authOptions: NextAuthOptions = {
               select: {
                 id: true,
                 role: true,
+                TwoFactor: {
+                  select: {
+                    verified: true,
+                  },
+                },
               },
             });
 
-            return user;
+            return {
+              id: user.id,
+              role: user.role,
+              is2FAEnabled: user.TwoFactor ? user.TwoFactor.verified : false,
+            };
           } else {
             return null;
           }
@@ -81,6 +90,26 @@ export const authOptions: NextAuthOptions = {
         // Persist the data to the token right after authentication
         token.id = user.id;
         token.role = user.role;
+        token.is2FAEnabled = user.is2FAEnabled;
+      } else {
+        const dbUser = await prisma.user.findUnique({
+          where: {
+            id: token.id,
+          },
+          select: {
+            role: true,
+            TwoFactor: {
+              select: {
+                verified: true,
+              },
+            },
+          },
+        });
+
+        if (dbUser) {
+          token.role = dbUser.role;
+          token.is2FAEnabled = dbUser.TwoFactor ? dbUser.TwoFactor.verified : false;
+        }
       }
 
       return token;
@@ -88,8 +117,10 @@ export const authOptions: NextAuthOptions = {
     session({ session, token }) {
       session.user.id = token.id;
       session.user.role = token.role;
+      session.user.is2FAEnabled = token.is2FAEnabled;
       session.iat = token.iat;
       session.exp = token.exp;
+
       return session;
     },
   },

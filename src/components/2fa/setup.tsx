@@ -20,6 +20,8 @@ import { Label } from '@/components/ui/label';
 
 import { Skeleton } from '../ui/skeleton';
 
+const MAX_ATTEMPTS = 3;
+
 const ScanQRCode: React.FC<{ next: () => void }> = ({ next }) => {
   const [imageUrl, setImageUrl] = useState<string | null>(null);
 
@@ -57,20 +59,33 @@ const ScanQRCode: React.FC<{ next: () => void }> = ({ next }) => {
   );
 };
 
-const ConfirmCode: React.FC<{ disabled: boolean; next: (code: string) => void }> = ({
-  disabled,
-  next,
-}) => {
+const ConfirmCode: React.FC<{ next: (ok: boolean) => void }> = ({ next }) => {
   const [error, setError] = useState<string | null>(null);
+  const [attempts, setAttempts] = useState(0);
+  const [isPending, startTransition] = useTransition();
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const code = new FormData(e.currentTarget).get('code') as string;
 
     if (code && code.length === 6 && Number(code) && Number(code) > 0) {
-      next(code);
+      startTransition(() =>
+        verify(code).then(valid => {
+          if (valid) {
+            next(true);
+          } else {
+            const newAttempts = attempts + 1;
+            if (newAttempts >= MAX_ATTEMPTS) {
+              next(false);
+            } else {
+              setError(`Invalid code, ${MAX_ATTEMPTS - newAttempts} attempts remaining`);
+              setAttempts(newAttempts);
+            }
+          }
+        })
+      );
     } else {
-      setError('Invalid code');
+      setError('Invalid format, must be a 6 digit number');
     }
   }
 
@@ -89,7 +104,7 @@ const ConfirmCode: React.FC<{ disabled: boolean; next: (code: string) => void }>
           {error ? <span className="text-destructive">{error}</span> : null}
         </Label>
         <DialogFooter>
-          <Button type="submit" disabled={disabled}>
+          <Button type="submit" disabled={isPending}>
             Confirm
           </Button>
         </DialogFooter>
@@ -101,19 +116,13 @@ const ConfirmCode: React.FC<{ disabled: boolean; next: (code: string) => void }>
 export const Setup2FA: React.FC = () => {
   const [open, setOpen] = useState(false);
   const [stage, setStage] = useState<'scan' | 'confirm'>('scan');
-  const [isPending, startTransition] = useTransition();
 
-  function handleConfirmCode(code: string) {
-    startTransition(() =>
-      verify(code).then(valid => {
-        console.log(valid);
-        if (valid) {
-          setOpen(false);
-        } else {
-          setStage('scan');
-        }
-      })
-    );
+  function handleConfirmCode(ok: boolean) {
+    if (ok) {
+      setOpen(false);
+    } else {
+      setStage('scan');
+    }
   }
 
   return (
@@ -125,7 +134,7 @@ export const Setup2FA: React.FC = () => {
         {stage === 'scan' ? (
           <ScanQRCode next={() => setStage('confirm')} />
         ) : (
-          <ConfirmCode disabled={isPending} next={handleConfirmCode} />
+          <ConfirmCode next={handleConfirmCode} />
         )}
       </DialogContent>
     </Dialog>

@@ -41,13 +41,13 @@ const ScanQRCode: React.FC<{ next: () => void }> = ({ next }) => {
         <Image
           src={imageUrl}
           alt="2FA qr-code"
-          className="h-64 w-64 object-fill"
+          className="mx-auto h-64 w-64 object-fill"
           width={256}
           height={256}
           unoptimized={true}
         />
       ) : (
-        <Skeleton className="h-64 w-64" />
+        <Skeleton className="mx-auto h-64 w-64" />
       )}
 
       <DialogFooter>
@@ -61,6 +61,8 @@ const ConfirmCode: React.FC<{ disabled: boolean; next: (code: string) => void }>
   disabled,
   next,
 }) => {
+  const [error, setError] = useState<string | null>(null);
+
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const code = new FormData(e.currentTarget).get('code') as string;
@@ -68,7 +70,7 @@ const ConfirmCode: React.FC<{ disabled: boolean; next: (code: string) => void }>
     if (code && code.length === 6 && Number(code) && Number(code) > 0) {
       next(code);
     } else {
-      alert('Invalid code');
+      setError('Invalid code');
     }
   }
 
@@ -80,10 +82,11 @@ const ConfirmCode: React.FC<{ disabled: boolean; next: (code: string) => void }>
           Enter the code from your authenticator app to confirm that 2FA is working.
         </DialogDescription>
       </DialogHeader>
-      <form onSubmit={handleSubmit}>
-        <Label>
+      <form onSubmit={handleSubmit} className="flex flex-col gap-2">
+        <Label className="flex flex-col gap-2">
           <span>Code</span>
           <Input name="code" type="text" placeholder="123456" />
+          {error ? <span className="text-destructive">{error}</span> : null}
         </Label>
         <DialogFooter>
           <Button type="submit" disabled={disabled}>
@@ -103,6 +106,7 @@ export const Setup2FA: React.FC = () => {
   function handleConfirmCode(code: string) {
     startTransition(() =>
       verify(code).then(valid => {
+        console.log(valid);
         if (valid) {
           setOpen(false);
         } else {
@@ -117,7 +121,7 @@ export const Setup2FA: React.FC = () => {
       <DialogTrigger asChild>
         <Button variant="outline">Setup 2FA</Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="flex flex-col gap-2 sm:max-w-[425px]">
         {stage === 'scan' ? (
           <ScanQRCode next={() => setStage('confirm')} />
         ) : (

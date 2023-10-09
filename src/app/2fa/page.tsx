@@ -1,5 +1,6 @@
 import { NextPage } from 'next';
 
+import { Remove2FA } from '@/components/2fa/remove-2fa';
 import { Setup2FA } from '@/components/2fa/setup';
 import {
   Card,
@@ -29,11 +30,7 @@ const Page: NextPage = async () => {
           2FA: <strong>{session!.user.is2FAEnabled ? 'Enabled' : 'Disabled'}</strong>
         </p>
       </CardContent>
-      {!session!.user.is2FAEnabled && (
-        <CardFooter>
-          <Setup2FA />
-        </CardFooter>
-      )}
+      <CardFooter>{!session!.user.is2FAEnabled ? <Setup2FA /> : <Remove2FA />}</CardFooter>
     </Card>
   );
 };

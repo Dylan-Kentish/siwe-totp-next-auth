@@ -20,7 +20,7 @@ export async function create() {
   const authenticatorSecret = authenticator.generateSecret();
 
   try {
-    await prisma.twoFactor.delete({
+    await prisma.twoFactor.deleteMany({
       where: {
         userId: session.user.id,
         verified: false,
@@ -56,7 +56,7 @@ export async function verify(token: string) {
   if (!session) {
     return false;
   }
-  const valid = verifyToken(token);
+  const valid = await verifyToken(token);
 
   if (!valid) {
     return false;
@@ -68,6 +68,24 @@ export async function verify(token: string) {
     },
     data: {
       verified: true,
+    },
+  });
+
+  revalidatePath('/2fa');
+
+  return true;
+}
+
+export async function remove() {
+  const session = await getServerSession();
+
+  if (!session) {
+    return null;
+  }
+
+  await prisma.twoFactor.delete({
+    where: {
+      userId: session.user.id,
     },
   });
 

@@ -1,4 +1,3 @@
-import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { getCsrfToken, signIn } from 'next-auth/react';
 import { SiweMessage } from 'siwe';
 import { useSignMessage } from 'wagmi';
@@ -8,13 +7,9 @@ import { env } from '@/env.mjs';
 const chainId = env.NEXT_PUBLIC_CHAIN_ID;
 
 export const useLogin = () => {
-  const path = usePathname();
-  const searchParams = useSearchParams();
-  const router = useRouter();
   const { signMessageAsync } = useSignMessage();
 
   async function loginAsync(address: string) {
-    const callbackUrl = searchParams.get('callbackUrl') || `${path}?${searchParams}`;
     const message = new SiweMessage({
       domain: window.location.host,
       address: address,
@@ -30,26 +25,21 @@ export const useLogin = () => {
     });
 
     if (!signature) {
-      throw new Error('Signature is empty');
+      console.error('Signature is empty');
+      return false;
     }
 
-    const response = await signIn('siwe', {
+    const result = await signIn('siwe', {
       message: JSON.stringify(message),
       signature,
       redirect: false,
     });
 
-    if (!response) {
-      throw new Error('Response is empty');
+    if (!result?.ok) {
+      console.error('Failed to sign in with Ethereum.');
     }
 
-    if (response.error) {
-      throw new Error(response.error);
-    }
-
-    router.replace(callbackUrl, {
-      scroll: false,
-    });
+    return result?.ok ?? false;
   }
 
   return { loginAsync };

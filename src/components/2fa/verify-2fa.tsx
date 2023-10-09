@@ -1,9 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-
-import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { signIn, useSession } from 'next-auth/react';
+import { useState } from 'react';
 
 import {
   AlertDialog,
@@ -16,34 +13,20 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { use2FA } from '@/hooks/use2fa';
 
-export const Verify2FA = () => {
-  const path = usePathname();
-  const searchParams = useSearchParams();
-  const router = useRouter();
-  const { data: session } = useSession();
-  const [open, setOpen] = useState(false);
+const MAX_ATTEMPTS = 3;
+
+type Props = {
+  open: boolean;
+  setOpen: (open: boolean) => void;
+  onVerified: (valid: boolean) => void;
+};
+
+export const Verify2FA: React.FC<Props> = ({ open, setOpen, onVerified }) => {
   const [error, setError] = useState<string | null>(null);
-
-  async function handleConfirmCode(code: string) {
-    const callbackUrl = searchParams.get('callbackUrl') || `${path}?${searchParams}`;
-
-    const result = await signIn('2fa', {
-      code: code,
-      redirect: false,
-    });
-
-    if (!result?.ok) {
-      setError('Invalid code');
-    } else {
-      router.refresh();
-      router.replace(callbackUrl, {
-        scroll: false,
-      });
-      setOpen(false);
-      console.log('2FA', callbackUrl);
-    }
-  }
+  const [attempts, setAttempts] = useState(0);
+  const { verifyAsync } = use2FA();
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -51,18 +34,35 @@ export const Verify2FA = () => {
 
     const code = new FormData(e.currentTarget).get('code') as string;
 
-    if (code && code.length === 6 && Number(code) && Number(code) > 0) {
-      await handleConfirmCode(code);
+    const isValidCode = code && code.length === 6 && Number(code) && Number(code) > 0;
+
+    if (!isValidCode) {
+      setError('Invalid format, must be a 6 digit number');
+      return;
+    }
+
+    const ok = await verifyAsync(code);
+
+    if (!ok) {
+      setAttempts(attempts => {
+        const newAttempts = attempts + 1;
+
+        if (newAttempts >= MAX_ATTEMPTS) {
+          setOpen(false);
+          setAttempts(0);
+          onVerified(false);
+        } else {
+          setError('Invalid code');
+        }
+
+        return newAttempts;
+      });
     } else {
-      setError('Invalid code');
+      setOpen(false);
+      setAttempts(0);
+      onVerified(true);
     }
   }
-
-  useEffect(() => {
-    if (session && !session.user.is2FAVerified) {
-      setOpen(true);
-    }
-  }, [session]);
 
   return (
     <AlertDialog open={open} onOpenChange={setOpen}>
@@ -77,7 +77,11 @@ export const Verify2FA = () => {
           <Label className="flex flex-col gap-2">
             <span>Code</span>
             <Input name="code" type="text" placeholder="123456" />
-            {error ? <span className="text-destructive">{error}</span> : null}
+            {error ? (
+              <span className="text-destructive">
+                {error} {`(${MAX_ATTEMPTS - attempts} attempts left)`}
+              </span>
+            ) : null}
           </Label>
           <AlertDialogFooter>
             <Button type="submit">Confirm</Button>

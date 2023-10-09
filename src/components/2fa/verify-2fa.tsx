@@ -28,6 +28,13 @@ export const Verify2FA: React.FC<Props> = ({ open, setOpen, onVerified }) => {
   const [attempts, setAttempts] = useState(0);
   const { verifyAsync } = use2FA();
 
+  function close(result: boolean) {
+    setOpen(false);
+    setAttempts(0);
+    setError(null);
+    onVerified(result);
+  }
+
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     e.stopPropagation();
@@ -44,23 +51,16 @@ export const Verify2FA: React.FC<Props> = ({ open, setOpen, onVerified }) => {
     const ok = await verifyAsync(code);
 
     if (!ok) {
-      setAttempts(attempts => {
-        const newAttempts = attempts + 1;
+      const newAttempts = attempts + 1;
 
-        if (newAttempts >= MAX_ATTEMPTS) {
-          setOpen(false);
-          setAttempts(0);
-          onVerified(false);
-        } else {
-          setError('Invalid code');
-        }
-
-        return newAttempts;
-      });
+      if (newAttempts >= MAX_ATTEMPTS) {
+        close(false);
+      } else {
+        setError('Invalid code');
+        setAttempts(newAttempts);
+      }
     } else {
-      setOpen(false);
-      setAttempts(0);
-      onVerified(true);
+      close(true);
     }
   }
 

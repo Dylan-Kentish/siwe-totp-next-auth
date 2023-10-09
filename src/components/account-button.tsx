@@ -10,7 +10,7 @@ import { useAccount, useDisconnect } from 'wagmi';
 import { useLogin } from '@/hooks/useLogin';
 import { useLogout } from '@/hooks/useLogout';
 
-import { Verify2FA } from './2fa/verify-2fa';
+import { use2FA } from './2fa/provider';
 import { Button } from './ui/button';
 
 export const AccountButton: React.FC = () => {
@@ -24,7 +24,26 @@ export const AccountButton: React.FC = () => {
   const { loginAsync } = useLogin();
   const { logoutAsync } = useLogout();
 
-  const [open2FA, setOpen2FA] = useState(false);
+  const redirect = useCallback(() => {
+    const callbackUrl = searchParams.get('callbackUrl') || `${path}?${searchParams}`;
+
+    router.replace(callbackUrl, {
+      scroll: false,
+    });
+  }, [path, router, searchParams]);
+
+  const { verify2FA } = use2FA({
+    onVerified: async ok => {
+      if (!ok) {
+        setDisabled(false);
+        await logoutAsync(false);
+      } else {
+        redirect();
+        setDisabled(false);
+      }
+    },
+  });
+
   const [disabled, setDisabled] = useState(false);
 
   useAccount({
@@ -44,14 +63,6 @@ export const AccountButton: React.FC = () => {
     },
   });
 
-  const redirect = useCallback(() => {
-    const callbackUrl = searchParams.get('callbackUrl') || `${path}?${searchParams}`;
-
-    router.replace(callbackUrl, {
-      scroll: false,
-    });
-  }, [path, router, searchParams]);
-
   async function handleClick() {
     if (session) {
       await logoutAsync().catch(console.error);
@@ -60,36 +71,24 @@ export const AccountButton: React.FC = () => {
     }
   }
 
-  function handle2FAVerified(valid: boolean) {
-    if (valid) {
-      redirect();
-    } else {
-      logoutAsync().catch(console.error);
-    }
-    setDisabled(false);
-  }
-
   useEffect(() => {
-    if (session) {
+    if (disabled && session) {
       if (session.user.is2FAEnabled && !session.user.is2FAVerified) {
-        setOpen2FA(true);
+        verify2FA().catch(console.error);
       } else {
         setDisabled(false);
         redirect();
       }
     }
-  }, [redirect, session]);
+  }, [redirect, session, verify2FA, disabled]);
 
   return (
-    <span>
-      <Button
-        size="lg"
-        onClick={handleClick}
-        disabled={sessionStatus === 'loading' || isOpen || disabled || open2FA}
-      >
-        {session ? 'Logout' : 'Login'}
-      </Button>
-      <Verify2FA open={open2FA} setOpen={setOpen2FA} onVerified={handle2FAVerified} />
-    </span>
+    <Button
+      size="lg"
+      onClick={handleClick}
+      disabled={sessionStatus === 'loading' || isOpen || disabled}
+    >
+      {session ? 'Logout' : 'Login'}
+    </Button>
   );
 };

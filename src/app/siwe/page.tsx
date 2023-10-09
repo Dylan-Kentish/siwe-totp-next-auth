@@ -1,6 +1,14 @@
 import { NextPage } from 'next';
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Verify2FA } from '@/components/2fa/verify-2fa';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 
 import { getServerSession } from '../api/auth/options';
 
@@ -22,7 +30,11 @@ const SIWEPage: NextPage = async () => {
             You are currently <strong>signed in</strong>.
             <br />
             <br />
-            You are registered as a <strong>{session?.user.role}</strong>.
+            You are registered as a <strong>{session.user.role}</strong>.
+            <br />
+            <br />
+            This session is{' '}
+            <strong>{session.user.is2FAVerified ? '2FA verified' : 'not 2FA verified'}</strong>.
           </p>
         ) : (
           <p>
@@ -30,6 +42,11 @@ const SIWEPage: NextPage = async () => {
           </p>
         )}
       </CardContent>
+      {session && !session.user.is2FAVerified ? (
+        <CardFooter>
+          <Verify2FA />
+        </CardFooter>
+      ) : null}
     </Card>
   );
 };

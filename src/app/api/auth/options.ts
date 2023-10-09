@@ -7,6 +7,7 @@ import { getCsrfToken } from 'next-auth/react';
 import { SiweMessage } from 'siwe';
 
 import { env } from '@/env.mjs';
+import { verifyToken } from '@/server/2fa';
 import { prisma } from '@/server/db';
 
 import { SIWEAdapter } from './adapter';
@@ -14,6 +15,7 @@ import { SIWEAdapter } from './adapter';
 export const authOptions: NextAuthOptions = {
   session: {
     strategy: 'jwt',
+    maxAge: 30 * 60, // 30 minutes
   },
   adapter: SIWEAdapter(),
   providers: [
@@ -78,6 +80,58 @@ export const authOptions: NextAuthOptions = {
         }
       },
     }),
+    CredentialsProvider({
+      id: '2fa',
+      name: '2fa',
+      credentials: {
+        code: {
+          label: 'Code',
+          type: 'text',
+          placeholder: '123456',
+        },
+      },
+      async authorize(credentials) {
+        const session = await getServerSession();
+
+        if (!session) {
+          return null;
+        }
+
+        const code = credentials?.code || '';
+
+        const valid = await verifyToken(code);
+
+        if (!valid) {
+          return null;
+        }
+
+        const user = await prisma.user.findUnique({
+          where: {
+            id: session?.user.id,
+          },
+          select: {
+            id: true,
+            role: true,
+            TwoFactor: {
+              select: {
+                verified: true,
+              },
+            },
+          },
+        });
+
+        if (!user) {
+          return null;
+        }
+
+        return {
+          id: user.id,
+          role: user.role,
+          is2FAEnabled: user.TwoFactor ? user.TwoFactor.verified : false,
+          is2FAVerified: valid,
+        };
+      },
+    }),
     TwitterProvider({
       clientId: env.TWITTER_CLIENT_ID,
       clientSecret: env.TWITTER_CLIENT_SECRET,
@@ -91,6 +145,7 @@ export const authOptions: NextAuthOptions = {
         token.id = user.id;
         token.role = user.role;
         token.is2FAEnabled = user.is2FAEnabled;
+        token.is2FAVerified = user.is2FAVerified;
       } else {
         const dbUser = await prisma.user.findUnique({
           where: {
@@ -118,6 +173,7 @@ export const authOptions: NextAuthOptions = {
       session.user.id = token.id;
       session.user.role = token.role;
       session.user.is2FAEnabled = token.is2FAEnabled;
+      session.user.is2FAVerified = token.is2FAVerified;
       session.iat = token.iat;
       session.exp = token.exp;
 

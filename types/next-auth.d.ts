@@ -14,6 +14,7 @@ declare module 'next-auth' {
     id: string;
     role: Role;
     is2FAEnabled: boolean;
+    is2FAVerified?: boolean;
   }
 
   interface Session {
@@ -28,6 +29,7 @@ declare module 'next-auth/jwt' {
     id: string;
     role: Role;
     is2FAEnabled: boolean;
+    is2FAVerified?: boolean;
     iat: number;
     exp: number;
   }

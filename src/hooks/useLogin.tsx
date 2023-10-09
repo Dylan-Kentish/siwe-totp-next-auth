@@ -1,4 +1,4 @@
-import { usePathname, useSearchParams } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { getCsrfToken, signIn } from 'next-auth/react';
 import { SiweMessage } from 'siwe';
 import { useSignMessage } from 'wagmi';
@@ -10,6 +10,7 @@ const chainId = env.NEXT_PUBLIC_CHAIN_ID;
 export const useLogin = () => {
   const path = usePathname();
   const searchParams = useSearchParams();
+  const router = useRouter();
   const { signMessageAsync } = useSignMessage();
 
   async function loginAsync(address: string) {
@@ -34,9 +35,8 @@ export const useLogin = () => {
 
     const response = await signIn('siwe', {
       message: JSON.stringify(message),
-      redirect: true,
       signature,
-      callbackUrl,
+      redirect: false,
     });
 
     if (!response) {
@@ -46,6 +46,10 @@ export const useLogin = () => {
     if (response.error) {
       throw new Error(response.error);
     }
+
+    router.replace(callbackUrl, {
+      scroll: false,
+    });
   }
 
   return { loginAsync };

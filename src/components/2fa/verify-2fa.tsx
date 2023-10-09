@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { signIn, useSession } from 'next-auth/react';
 
 import {
@@ -11,18 +12,22 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 
 export const Verify2FA = () => {
+  const path = usePathname();
+  const searchParams = useSearchParams();
+  const router = useRouter();
   const { data: session } = useSession();
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function handleConfirmCode(code: string) {
+    const callbackUrl = searchParams.get('callbackUrl') || `${path}?${searchParams}`;
+
     const result = await signIn('2fa', {
       code: code,
       redirect: false,
@@ -31,7 +36,12 @@ export const Verify2FA = () => {
     if (!result?.ok) {
       setError('Invalid code');
     } else {
+      router.refresh();
+      router.replace(callbackUrl, {
+        scroll: false,
+      });
       setOpen(false);
+      console.log('2FA', callbackUrl);
     }
   }
 
@@ -49,16 +59,13 @@ export const Verify2FA = () => {
   }
 
   useEffect(() => {
-    if (!session?.user.is2FAVerified) {
+    if (session && !session.user.is2FAVerified) {
       setOpen(true);
     }
   }, [session]);
 
   return (
     <AlertDialog open={open} onOpenChange={setOpen}>
-      <AlertDialogTrigger asChild>
-        <Button variant="outline">Verify 2FA</Button>
-      </AlertDialogTrigger>
       <AlertDialogContent className="sm:max-w-[425px]">
         <AlertDialogHeader>
           <AlertDialogTitle>2FA Verification</AlertDialogTitle>

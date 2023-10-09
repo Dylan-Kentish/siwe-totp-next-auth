@@ -1,19 +1,12 @@
+'use client';
+
 import { NextPage } from 'next';
+import { useSession } from 'next-auth/react';
 
-import { Verify2FA } from '@/components/2fa/verify-2fa';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 
-import { getServerSession } from '../api/auth/options';
-
-const SIWEPage: NextPage = async () => {
-  const session = await getServerSession();
+const SIWEPage: NextPage = () => {
+  const { data: session } = useSession();
 
   return (
     <Card>
@@ -42,11 +35,6 @@ const SIWEPage: NextPage = async () => {
           </p>
         )}
       </CardContent>
-      {session && !session.user.is2FAVerified ? (
-        <CardFooter>
-          <Verify2FA />
-        </CardFooter>
-      ) : null}
     </Card>
   );
 };
